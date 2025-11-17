@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    container_name: woh_web
+    command: ["python", "-m", "gunicorn", "woh.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "--workers", "3"]
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Fallbacks if .env not provided
+      - DEBUG=0
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/woh
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: woh_db
+    environment:
+      - POSTGRES_DB=woh
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d woh"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  staticfiles:
+  media:
